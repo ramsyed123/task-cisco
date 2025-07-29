@@ -25,22 +25,31 @@ jobs:
         run: |
           # Run commands to build and push Docker images
           docker build -t swiggy-clone .
-          docker tag swiggy-clone aakibkhan1212/swiggy-clone:latest
+          docker tag swiggy-clone ramsyed/swiggy-clone:latest
           docker login -u ${{ secrets.Dockerhub_username }} -p ${{ secrets.Dockerhub_token }}
-          docker push aakibkhan1212/swiggy-clone:latest
-        env:
-          DOCKER_CLI_ACI: 1
+          docker push ramsyed/swiggy-clone:latest
+        
   deploy:
    needs: build
    runs-on: ubuntu-latest
    steps:
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Update kubeconfig for EKS
+        run: aws eks --region us-east-1 update-kubeconfig --name EKS_CLOUD
+
       - name: docker pull image
-        run: docker pull aakibkhan1212/swiggy-clone:latest
-      - name: Image scan
-        run: trivy image aakibkhan1212/swiggy-clone:latest > trivyimagedeploy.txt
-      - name: Deploy to container
-        run: docker run -d --name swiggy-clone1 -p 3000:3000 aakibkhan1212/swiggy-clone:latest
-      - name: Update kubeconfig
-        run: aws eks --region ap-south-1 update-kubeconfig --name EKS_CLOUD
-      - name: Deploy to kubernetes
+        run: docker pull ramsyed/swiggy-clone:latest
+
+      - name: docker run container
+        run: docker run -d --name swiggy-clone1 -p 3000:3000 ramsyed/swiggy-clone:latest
+
+      - name: Deploy to EKS
         run: kubectl apply -f deployment-service.yml
+      
